@@ -1,4 +1,4 @@
-{% trans count=reviews|count %}New review{% pluralize %}New reviews{% endtrans %} {% trans %}for{% endtrans %} *{{ app.name }}*:
+{% trans count=reviews|count %}New review{% pluralize %}New reviews{% endtrans %} {% trans %}for{% endtrans %} {% trans %}app{% endtrans %} *{{ app.name }}*:
 {%- for review in reviews %}
 {% trans %}Date{% endtrans %}: {{ review.creationtime|datetime }}
 {% trans %}Rating{% endtrans %}: {% for rating in range(0, 5) %}{% if review.rating > rating %}★{% else %}☆{% endif %}{% endfor %} ({{ review.rating }})
