@@ -1,0 +1,55 @@
+#!/bin/bash
+# XMPP notifications about Google Play apps reviews
+#
+# chkconfig: - 90 10
+# description: google-play-review-notify
+# processname: google-play-review-notify
+# pidfile: /var/run/google-play-review-notify.pid
+
+. /etc/rc.d/init.d/functions
+
+name=google-play-review-notify
+
+#####################
+#BEGIN CONFIG SECTION
+
+#Location of configuration file
+cfg=/etc/google-play-review-notify.cfg
+
+#Pid file to track start/stop of process
+pidfile=/var/run/google-play-review-notify.pid
+logfile=/var/log/google-play-review-notify/google-play-review-notify.log
+
+
+#Run as user
+runasuser=nobody
+runasgroup=nobody
+
+#END CONFIG SECTION
+#####################
+
+start() {
+    echo "Starting google-play-review-notify"
+    twistd --logfile $logfile --pidfile $pidfile --gid=$runasgroup --uid=$runasuser google-play-review-notify -c $cfg && echo "google-play-review-notify started" && exit 0
+    echo "Failed to start google-play-review-notify"
+    exit 1
+}
+
+stop() {
+    echo "Stopping google-play-review-notify"
+    killproc -p $pidfile "$prog"
+    exit $?
+}
+
+case "$1" in
+    start)
+    start
+    ;;
+    stop)
+    stop
+    ;;
+    *)
+    echo "Usage: google-play-review-notify {start|stop}"
+esac
+
+exit 1
