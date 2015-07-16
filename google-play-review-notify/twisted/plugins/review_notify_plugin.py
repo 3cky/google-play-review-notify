@@ -25,6 +25,8 @@ from jinja2 import Environment, PackageLoader, FileSystemLoader
 
 from datetime import datetime
 
+import pkg_resources
+
 import locale
 
 import babel.dates
@@ -146,7 +148,8 @@ class ServiceManager(object):
             self.templateName = DEFAULT_TEMPLATE_NAME
             templateLoader = PackageLoader('reviewnotify', 'templates')
         self.templateEnvironment = Environment(loader=templateLoader, extensions=['jinja2.ext.i18n'])
-        translations = babel.support.Translations.load('locales')
+        localeDir = pkg_resources.resource_filename('reviewnotify', 'locales')
+        translations = babel.support.Translations.load(localeDir)
         self.templateEnvironment.install_gettext_translations(translations)
         self.templateEnvironment.filters['datetime'] = format_datetime
         self.templateEnvironment.filters['review_url'] = review_url
