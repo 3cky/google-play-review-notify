@@ -97,10 +97,6 @@ class ServiceManager(object):
         with codecs.open(cfgFileName, 'r', encoding='utf-8') as f:
             cfg.readfp(f)
 
-        # set locale, if specified
-        if cfg.has_option('i18n', 'locale'):
-            locale.setlocale(locale.LC_ALL, cfg.get('i18n', 'locale'))
-
         # get Google login and password from configuration
         if not cfg.has_option('account', 'login') or not cfg.has_option('account', 'password'):
             raise ConfigurationError('Google account login and password must be specified '
@@ -149,7 +145,10 @@ class ServiceManager(object):
             templateLoader = PackageLoader('reviewnotify', 'templates')
         self.templateEnvironment = Environment(loader=templateLoader, extensions=['jinja2.ext.i18n'])
         localeDir = pkg_resources.resource_filename('reviewnotify', 'locales')
-        translations = babel.support.Translations.load(localeDir)
+        locale = None
+        if cfg.has_option('i18n', 'locale'):
+            locale = cfg.get('i18n', 'locale')
+        translations = babel.support.Translations.load(dirname=localeDir, locales=locale)
         self.templateEnvironment.install_gettext_translations(translations)
         self.templateEnvironment.filters['datetime'] = format_datetime
         self.templateEnvironment.filters['review_url'] = review_url
