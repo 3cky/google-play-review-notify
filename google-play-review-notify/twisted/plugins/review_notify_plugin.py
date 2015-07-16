@@ -46,6 +46,8 @@ DEFAULT_DB_FILENAME = 'reviews_db.sqlite'
 DEFAULT_NICKNAME = TAP_NAME
 DEFAULT_TEMPLATE_NAME = 'reviews.txt'
 
+RECONNECT_TIMEOUT = 60 # 1m
+
 DEFAULT_POLL_PERIOD = 600 # 10m
 DEFAULT_POLL_DELAY = 5
 
@@ -161,7 +163,13 @@ class ServiceManager(object):
         while reactor.running:
             log.msg('Checking for new reviews...')
             session = MarketSession()
-            yield session.login(self.googleLogin, self.googlePassword)
+            try:
+                yield session.login(self.googleLogin, self.googlePassword)
+            except Exception, e:
+                log.err(e, 'Can\'t authorize Google Play session')
+                # delay before next connect retry
+                yield sleep(RECONNECT_TIMEOUT)
+                continue
             for app in self.apps:
                 try:
                     # get last reviews for an application
