@@ -25,6 +25,8 @@ from jinja2 import Environment, PackageLoader, FileSystemLoader
 
 from datetime import datetime
 
+import locale
+
 import babel.dates
 import babel.support
 
@@ -90,6 +92,10 @@ class ServiceManager(object):
         cfg = ConfigParser()
         with codecs.open(cfgFileName, 'r', encoding='utf-8') as f:
             cfg.readfp(f)
+
+        # set locale, if specified
+        if cfg.has_option('i18n', 'locale'):
+            locale.setlocale(locale.LC_ALL, cfg.get('i18n', 'locale'))
 
         # get Google login and password from configuration
         if not cfg.has_option('account', 'login') or not cfg.has_option('account', 'password'):
