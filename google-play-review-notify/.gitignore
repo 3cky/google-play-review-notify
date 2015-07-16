@@ -1,6 +1,8 @@
 /build/
+/dist/
 /.settings/
 /twisted/plugins/dropin.cache
-/config.ini
+/config.ini*
 /*.sqlite
 *.pyc
+MANIFEST

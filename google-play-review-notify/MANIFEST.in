@@ -1,1 +1,2 @@
 include twisted/plugins/*.py
+recursive-include reviewnotify/locales *

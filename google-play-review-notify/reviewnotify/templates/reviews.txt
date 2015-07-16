@@ -1,7 +1,7 @@
-New {% trans count=reviews|count %}review{% pluralize %}reviews{% endtrans %} for *{{ app.name }}*:
+{% trans count=reviews|count %}New review{% pluralize %}New reviews{% endtrans %} {% trans %}for{% endtrans %} *{{ app.name }}*:
 {%- for review in reviews %}
-Date: {{ review.creationtime|datetime }}
-Rating: {% for rating in range(0, 5) %}{% if review.rating > rating %}★{% else %}☆{% endif %}{% endfor %} ({{ review.rating }})
-Comment: {{ review.text }}
-{% if devId %}Link: {{ review.authorid|review_url(devId, app) }}{{ "\n" }}{% else %}{% endif %}
+{% trans %}Date{% endtrans %}: {{ review.creationtime|datetime }}
+{% trans %}Rating{% endtrans %}: {% for rating in range(0, 5) %}{% if review.rating > rating %}★{% else %}☆{% endif %}{% endfor %} ({{ review.rating }})
+{% trans %}Comment{% endtrans %}: {{ review.text }}
+{% if devId %}{% trans %}Link{% endtrans %}: {{ review.authorid|review_url(devId, app) }}{{ "\n" }}{% else %}{% endif %}
 {%- endfor %}

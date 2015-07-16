@@ -55,7 +55,9 @@ setup(
         "twisted.plugins",
     ],
     cmdclass={'gen_proto': gen_proto},
-    package_data={'': ['templates/*.txt']},
+    package_data={'reviewnotify': ['templates/*.txt',
+                                   'locales/en_US/LC_MESSAGES/messages.mo',
+                                   'locales/ru_RU/LC_MESSAGES/messages.mo']},
     include_package_data=True,
     version='0.1.0',
 
