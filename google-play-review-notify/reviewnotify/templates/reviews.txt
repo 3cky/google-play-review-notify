@@ -1,0 +1,7 @@
+New {% trans count=reviews|count %}review{% pluralize %}reviews{% endtrans %} for *{{ app.name }}*:
+{%- for review in reviews %}
+Date: {{ review.creationtime|datetime }}
+Rating: {% for rating in range(0, 5) %}{% if review.rating > rating %}★{% else %}☆{% endif %}{% endfor %} ({{ review.rating }})
+Comment: {{ review.text }}
+{% if devId %}Link: {{ review.authorid|review_url(devId, app) }}{{ "\n" }}{% else %}{% endif %}
+{%- endfor %}

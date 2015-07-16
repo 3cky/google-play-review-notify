@@ -1,0 +1,6 @@
+/build/
+/.settings/
+/twisted/plugins/dropin.cache
+/config.ini
+/*.sqlite
+*.pyc

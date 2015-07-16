@@ -1,0 +1,8 @@
+protobuf>=2.5.0
+twisted
+treq
+wokkel
+jinja2
+jinja2_pluralize
+babel
+humanfriendly
