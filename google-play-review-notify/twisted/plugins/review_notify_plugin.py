@@ -184,6 +184,9 @@ class ServiceManager(object):
                                                           app.identifier, reviewAuthorId)
                     # notify about new reviews all related chats
                     if notifyReviews:
+                        # sort reviews by creation time before notification
+                        notifyReviews.sort(key = lambda k: k.get('creationtime'))
+                        # notify all related chats
                         for mucNotifier in self.mucNotifiers:
                             if mucNotifier.isNotifierForApp(app.identifier):
                                 mucNotifier.notify(template.render(devId=self.googleDeveloperId,
