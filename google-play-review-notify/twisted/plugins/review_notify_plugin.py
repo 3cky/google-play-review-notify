@@ -27,8 +27,6 @@ from datetime import datetime
 
 import pkg_resources
 
-import locale
-
 import babel.dates
 import babel.support
 
