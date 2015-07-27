@@ -180,7 +180,7 @@ class ServiceManager(object):
                         reviewAuthorName = review.get('authorname')
                         reviewCreationTime = review.get('creationtime')
                         reviewRating = review.get('rating')
-                        reviewComment = review.get('comment')
+                        reviewComment = review.get('text')
                         # check for review with same author id
                         dbReviews = yield self.dbGetReviews(app.identifier, reviewAuthorId)
                         if not dbReviews:
