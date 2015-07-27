@@ -197,8 +197,8 @@ class ServiceManager(object):
                                 log.msg('Found changed review for %s from author: %s' % \
                                         (app.identifier, reviewAuthorId,))
                                 notifyReviews.append(review)
-                                yield self.dbUpdateReview(reviewRating, reviewComment,
-                                                          app.identifier, reviewAuthorId)
+                                yield self.dbUpdateReview(app.identifier, reviewAuthorId,
+                                                          reviewRating, reviewComment)
                     # notify about new reviews all related chats
                     if notifyReviews:
                         # sort reviews by creation time before notification
