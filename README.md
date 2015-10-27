@@ -38,8 +38,8 @@ section of configuration file.
 
 ## Details
 
-It's strange but Google still have no official API for accessing applications reviews, so this bot
-using unofficial reverse-engineered Protobuf-based internal Google Market API
-(https://github.com/liato/android-market-api-py). This API is outdated, limited by functions and
-could break at all at any moment, but it's still better than nothing.
+It's strange but Google still have no official API for accessing application reviews, so this bot
+is using unofficial reverse-engineered Protobuf-based internal Google Play API
+(https://github.com/Akdeniz/google-play-crawler). This API is rather outdated, limited by functions and
+can break at all at any moment, but it's still better than nothing.
 

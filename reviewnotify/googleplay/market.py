@@ -1,8 +1,6 @@
-# Modified version of https://github.com/liato/android-market-api-py
-
-import base64
-import gzip
-import StringIO
+# Based on:
+# https://github.com/liato/android-market-api-py
+# https://github.com/Akdeniz/google-play-crawler
 
 import treq
 
@@ -27,25 +25,14 @@ class RequestError(Exception):
         return repr(self.value)
 
 class MarketSession(object):
-    SERVICE = "android";
-    URL_LOGIN = "https://www.google.com/accounts/ClientLogin"
-    HOST_API_REQUEST = "android.clients.google.com/market/api/ApiRequest"
-    ACCOUNT_TYPE_GOOGLE = "GOOGLE"
-    ACCOUNT_TYPE_HOSTED = "HOSTED"
+    URL_LOGIN = "https://android.clients.google.com/auth"
+    HOST_API_REQUEST = "https://android.clients.google.com/fdfe/"
+    URL_REVIEWS = HOST_API_REQUEST + "rev";
+    SERVICE = "androidmarket";
     ACCOUNT_TYPE_HOSTED_OR_GOOGLE = "HOSTED_OR_GOOGLE"
     PROTOCOL_VERSION = 2
+    ANDROID_ID = "0123456789123456"
     authSubToken = None
-    context = None
-
-    def __init__(self):
-        self.context = market_proto.RequestContext()
-        self.context.isSecure = 0
-        self.context.version = 1002012
-        self.context.androidId = "0123456789123456" # change me :(
-#         self.context.userLanguage = "ru"
-#         self.context.userCountry = "RU"
-        self.context.deviceAndSdkVersion = "crespo:10"
-        self.setOperatorTMobile()
 
     def _toDict(self, protoObj):
         iterable = False
@@ -59,9 +46,9 @@ class MarketSession(object):
             for fielddesc, value in po.ListFields():
                 #print value, type(value), getattr(value, '__iter__', False)
                 if fielddesc.type == descriptor.FieldDescriptor.TYPE_GROUP or isinstance(value, RepeatedCompositeFieldContainer):
-                    msg[fielddesc.name.lower()] = self._toDict(value)
+                    msg[fielddesc.name] = self._toDict(value)
                 else:
-                    msg[fielddesc.name.lower()] = value
+                    msg[fielddesc.name] = value
             retlist.append(msg)
         if not iterable:
             if len(retlist) > 0:
@@ -70,48 +57,24 @@ class MarketSession(object):
                 return None
         return retlist
 
-    def setOperatorSimple(self, alpha, numeric):
-        self.setOperator(alpha, alpha, numeric, numeric);
-
-    def setOperatorTMobile(self):
-        self.setOperatorSimple("T-Mobile", "310260")
-
-    def setOperatorSFR(self):
-        self.setOperatorSimple("F SFR", "20810")
-
-    def setOperatorO2(self):
-        self.setOperatorSimple("o2 - de", "26207")
-
-    def setOperatorSimyo(self):
-        self.setOperator("E-Plus", "simyo", "26203", "26203")
-
-    def setOperatorSunrise(self):
-        self.setOperatorSimple("sunrise", "22802")
-
-    def setOperator(self, alpha, simAlpha, numeric, simNumeric):
-        self.context.operatorAlpha = alpha
-        self.context.simOperatorAlpha = simAlpha
-        self.context.operatorNumeric = numeric
-        self.context.simOperatorNumeric = simNumeric
-
     def setAuthSubToken(self, authSubToken):
-        self.context.authSubToken = authSubToken
         self.authSubToken = authSubToken
 
     @defer.inlineCallbacks
     def login(self, email, password, accountType = ACCOUNT_TYPE_HOSTED_OR_GOOGLE):
         params = {"Email": email, "Passwd": password, "service": self.SERVICE,
-                  "accountType": accountType}
-        resp = yield treq.get(self.URL_LOGIN, params=params)
+                  "accountType": accountType, "has_permission": "1",
+                  "app": "com.android.vending", "sdk_version": "16" }
+        resp = yield treq.post(self.URL_LOGIN, params)
         if resp.code == http.OK:
             data = yield treq.content(resp)
             data = data.split()
             params = {}
             for d in data:
                 k, v = d.split("=")
-                params[k.strip().lower()] = v.strip()
-            if "auth" in params:
-                self.setAuthSubToken(params["auth"])
+                params[k.strip()] = v.strip()
+            if "Auth" in params:
+                self.setAuthSubToken(params["Auth"])
             else:
                 raise LoginError("Auth token not found.")
         else:
@@ -122,7 +85,7 @@ class MarketSession(object):
                     d = d.strip()
                     if d:
                         k, v = d.split("=", 1)
-                        params[k.strip().lower()] = v.strip()
+                        params[k.strip()] = v.strip()
                 if "error" in params:
                     raise LoginError(params["error"])
                 else:
@@ -132,29 +95,20 @@ class MarketSession(object):
                 raise LoginError("Login failed: error %d <%s>" % (resp.code, data.rstrip(),))
 
     @defer.inlineCallbacks
-    def execute(self, request):
-        request.context.CopyFrom(self.context)
+    def execute(self, url, params, lang):
         try:
-            headers = {"Cookie": "ANDROID="+self.authSubToken,
+            headers = {"Authorization": "GoogleLogin auth=" + self.authSubToken,
+                       "Accept-Language": lang.encode("ascii"),
                        "User-Agent": "Android-Market/2 (sapphire PLAT-RC33); gzip",
-                       "Content-Type": "application/x-www-form-urlencoded",
-                       "Accept-Charset": "ISO-8859-1,utf-8;q=0.7,*;q=0.7"}
-            data = request.SerializeToString()
-            params = {"version": self.PROTOCOL_VERSION, "request": base64.urlsafe_b64encode(data)}
-
-            if self.context.isSecure == 1 or self.context.isSecure == True:
-                http_method = "https"
-            else:
-                http_method = "http"
-
-            resp = yield treq.get(http_method + "://" + self.HOST_API_REQUEST,
-                                  params=params, headers=headers)
+                       "X-DFE-Device-Id": self.ANDROID_ID,
+                       "X-DFE-Client-Id": "am-android-google",
+                       "X-DFE-Enabled-Experiments": "cl:billing.select_add_instrument_by_default",
+                       "X-DFE-SmallestScreenWidthDp": "320", "X-DFE-Filter-Level": "3",
+                       "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8"}
+            resp = yield treq.get(url, params=params, headers=headers)
             if resp.code == http.OK:
                 data = yield treq.content(resp)
-                data = StringIO.StringIO(data)
-                gzipper = gzip.GzipFile(fileobj=data)
-                data = gzipper.read()
-                response = market_proto.Response()
+                response = market_proto.ResponseWrapper()
                 response.ParseFromString(data)
                 defer.returnValue(response)
             else:
@@ -163,17 +117,13 @@ class MarketSession(object):
             raise RequestError(e)
 
     @defer.inlineCallbacks
-    def getReviews(self, appid, startIndex = 0, entriesCount = 10):
-        request = market_proto.Request()
-        commentsRequest = request.requestgroup.add()
-        req = commentsRequest.commentsRequest
-        req.appId = appid
-        req.startIndex = startIndex
-        req.entriesCount = entriesCount
-        response = yield self.execute(request)
-        retlist = []
-        for rg in response.responsegroup:
-            if rg.HasField("commentsResponse"):
-                for comment in rg.commentsResponse.comments:
-                    retlist.append(self._toDict(comment))
-        defer.returnValue(retlist)
+    def getReviews(self, appid, startIndex = 0, entriesCount = 10, lang = 'en'):
+        response = yield self.execute(self.URL_REVIEWS,
+                                      {"doc": appid, "o": startIndex, "n": entriesCount, "sort": 0},
+                                      lang)
+        result = []
+        rp = response.payload
+        if rp.HasField("reviewResponse"):
+            for review in rp.reviewResponse.getResponse.review:
+                result.append(self._toDict(review))
+        defer.returnValue(result)

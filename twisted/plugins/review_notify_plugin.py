@@ -39,7 +39,7 @@ from reviewnotify.googleplay.market import MarketSession
 
 TAP_NAME = "google-play-review-notify"
 
-REVIEW_URL = 'https://play.google.com/apps/publish/?dev_acc={devId}#ReviewsPlace:p={appId}&revid={reviewId}'
+REVIEW_URL = 'https://play.google.com/apps/publish/?dev_acc={devId}#ReviewDetailsPlace:p={appId}&reviewid={reviewId}'
 
 DEFAULT_DB_FILENAME = 'reviews_db.sqlite'
 
@@ -50,6 +50,7 @@ RECONNECT_TIMEOUT = 60 # 1m
 
 DEFAULT_POLL_PERIOD = 600 # 10m
 DEFAULT_POLL_DELAY = 5
+DEFAULT_LANG = 'en'
 
 class ConfigurationError(Exception):
     def __init__(self, value):
@@ -77,6 +78,7 @@ class ServiceManager(object):
     options = Options
     mucNotifiers = []
     apps = []
+    langs = []
 
     def makeService(self, options):
         # create Twisted application
@@ -132,7 +134,8 @@ class ServiceManager(object):
                 if cfg.has_option('poll', 'period') else DEFAULT_POLL_PERIOD
         self.pollDelay = humanfriendly.parse_timespan(cfg.get('poll', 'delay')) \
                 if cfg.has_option('poll', 'delay') else DEFAULT_POLL_DELAY
-
+        self.langs = [lang.strip() for lang in cfg.get('poll', 'lang').split(',')] \
+                if cfg.has_option('poll', 'lang') else [ DEFAULT_LANG ]
         templateLoader = None
         if cfg.has_option('notification', 'template'):
             templateFullName = cfg.get('notification', 'template')
@@ -173,36 +176,40 @@ class ServiceManager(object):
             for app in self.apps:
                 try:
                     # get last reviews for an application
-                    reviews = yield session.getReviews(app.identifier)
                     notifyReviews = []
-                    for review in reviews:
-                        reviewAuthorId = review.get('authorid')
-                        reviewAuthorName = review.get('authorname')
-                        reviewCreationTime = review.get('creationtime')
-                        reviewRating = review.get('rating')
-                        reviewComment = review.get('text')
-                        # check for review with same author id
-                        dbReviews = yield self.dbGetReviews(app.identifier, reviewAuthorId)
-                        if not dbReviews:
-                            # new review found, will add to database and notify
-                            log.msg('Found new review for %s from author: %s' % (app, reviewAuthorId,))
-                            notifyReviews.append(review)
-                            yield self.dbAddReview(app.identifier, reviewAuthorId, reviewAuthorName,
-                                                   reviewCreationTime, reviewRating, reviewComment)
-                        else:
-                            # review with given author ID already seen, check for changes
-                            _appid, _authorId, _authorName, _timestamp, rating, comment = dbReviews[0]
-                            if (reviewRating <> rating) or (reviewComment <> comment):
-                                # review changed, will update database and notify
-                                log.msg('Found changed review for %s from author: %s' % \
-                                        (app.identifier, reviewAuthorId,))
+                    for lang in self.langs:
+                        reviews = yield session.getReviews(appid=app.identifier, lang=lang)
+                        for review in reviews:
+                            reviewAuthorId = review.get('commentId')
+                            reviewAuthorName = review.get('authorName')
+                            reviewCreationTime = review.get('timestampMsec')
+                            reviewRating = review.get('starRating')
+                            reviewComment = review.get('comment')
+                            # check for review with same author id
+                            dbReviews = yield self.dbGetReviews(app.identifier, reviewAuthorId)
+                            if not dbReviews:
+                                # new review found, will add to database and notify
+                                log.msg('Found new review for %s from author: %s' % (app, reviewAuthorId,))
                                 notifyReviews.append(review)
-                                yield self.dbUpdateReview(app.identifier, reviewAuthorId,
-                                                          reviewRating, reviewComment)
+                                yield self.dbAddReview(app.identifier, reviewAuthorId, reviewAuthorName,
+                                                       reviewCreationTime, reviewRating, reviewComment)
+                            else:
+                                # review with given author ID already seen, check for changes
+                                _appid, _authorId, _authorName, _timestamp, rating, comment = dbReviews[0]
+                                if (reviewRating <> rating) or (reviewComment <> comment):
+                                    # review changed, will update database and notify
+                                    log.msg('Found changed review for %s from author: %s' % \
+                                            (app.identifier, reviewAuthorId,))
+                                    notifyReviews.append(review)
+                                    yield self.dbUpdateReview(app.identifier, reviewAuthorId,
+                                                              reviewRating, reviewComment)
+                        if lang <> self.langs[-1]:
+                            # delay before check next lang
+                            yield sleep(self.pollDelay)
                     # notify about new reviews all related chats
                     if notifyReviews:
                         # sort reviews by creation time before notification
-                        notifyReviews.sort(key = lambda k: k.get('creationtime'))
+                        notifyReviews.sort(key = lambda k: k.get('timestampMsec'))
                         # notify all related chats
                         for mucNotifier in self.mucNotifiers:
                             if mucNotifier.isNotifierForApp(app.identifier):
@@ -210,8 +217,9 @@ class ServiceManager(object):
                                                                    app=app, reviews=notifyReviews))
                 except Exception, e:
                     log.err(e, 'Can\'t check for new reviews for an application %s' % app)
-                # delay before check next application
-                yield sleep(self.pollDelay)
+                if app <> self.apps[-1]:
+                    # delay before check next application
+                    yield sleep(self.pollDelay)
             # delay before next applications poll cycle
             yield sleep(self.pollPeriod)
 
@@ -260,11 +268,10 @@ def format_datetime(timestamp_msec):
     date = datetime.fromtimestamp(timestamp_msec / 1000.0)
     return babel.dates.format_datetime(date)
 
-def review_url(authorId, devId, app):
+def review_url(reviewId, devId, app):
     '''
     Get Google Play developer console URL of application review
     '''
-    reviewId = 'gp:' + authorId.split(':')[1] if (':' in authorId) else authorId
     return REVIEW_URL.format(devId=devId, appId=app.identifier, reviewId=reviewId)
 
 serviceManager = ServiceManager()
