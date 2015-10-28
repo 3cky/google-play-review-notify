@@ -30,9 +30,10 @@ class MarketSession(object):
     URL_REVIEWS = HOST_API_REQUEST + "rev";
     SERVICE = "androidmarket";
     ACCOUNT_TYPE_HOSTED_OR_GOOGLE = "HOSTED_OR_GOOGLE"
-    PROTOCOL_VERSION = 2
-    ANDROID_ID = "0123456789123456"
     authSubToken = None
+
+    def __init__(self, androidId):
+        self.androidId = androidId.encode("ascii")
 
     def _toDict(self, protoObj):
         iterable = False
@@ -64,6 +65,7 @@ class MarketSession(object):
     def login(self, email, password, accountType = ACCOUNT_TYPE_HOSTED_OR_GOOGLE):
         params = {"Email": email, "Passwd": password, "service": self.SERVICE,
                   "accountType": accountType, "has_permission": "1",
+                  "source": "android", "androidId": self.androidId,
                   "app": "com.android.vending", "sdk_version": "16" }
         resp = yield treq.post(self.URL_LOGIN, params)
         if resp.code == http.OK:
@@ -100,7 +102,7 @@ class MarketSession(object):
             headers = {"Authorization": "GoogleLogin auth=" + self.authSubToken,
                        "Accept-Language": lang.encode("ascii"),
                        "User-Agent": "Android-Market/2 (sapphire PLAT-RC33); gzip",
-                       "X-DFE-Device-Id": self.ANDROID_ID,
+                       "X-DFE-Device-Id": self.androidId,
                        "X-DFE-Client-Id": "am-android-google",
                        "X-DFE-Enabled-Experiments": "cl:billing.select_add_instrument_by_default",
                        "X-DFE-SmallestScreenWidthDp": "320", "X-DFE-Filter-Level": "3",

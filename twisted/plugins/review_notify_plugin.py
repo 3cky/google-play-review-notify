@@ -100,11 +100,15 @@ class ServiceManager(object):
         # get Google login and password from configuration
         if not cfg.has_option('account', 'login') or not cfg.has_option('account', 'password'):
             raise ConfigurationError('Google account login and password must be specified '
-                                     'in configuration file [google] section')
+                                     'in configuration file [account] section')
         self.googleLogin = cfg.get('account', 'login')
         self.googlePassword = cfg.get('account', 'password')
         self.googleDeveloperId = cfg.get('account', 'developer_id') \
             if cfg.has_option('account', 'developer_id') else None
+        # get ANDROID_ID from configuration
+        if not cfg.has_option('account', 'android_id'):
+            raise ConfigurationError('ANDROID_ID must be specified in configuration file [account] section')
+        self.androidId = cfg.get('account', 'android_id')
 
         # get apps to monitor reviews
         apps = cfg.items('apps')
@@ -165,7 +169,7 @@ class ServiceManager(object):
         # poll cycle loop
         while reactor.running:
             log.msg('Checking for new reviews...')
-            session = MarketSession()
+            session = MarketSession(self.androidId)
             try:
                 yield session.login(self.googleLogin, self.googlePassword)
             except Exception, e:
