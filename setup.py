@@ -1,7 +1,8 @@
 import os
 import sys
 import subprocess
-from distutils.core import setup
+
+from setuptools import setup
 
 from distutils.command.build_py import build_py
 from distutils.spawn import find_executable
@@ -59,7 +60,7 @@ setup(
                                    'locales/en_US/LC_MESSAGES/messages.mo',
                                    'locales/ru_RU/LC_MESSAGES/messages.mo']},
     include_package_data=True,
-    version='0.1.0',
+    version='0.2.0',
 
     url='https://github.com/3cky/google-play-review-notify',
     author='Victor Antonovich',
