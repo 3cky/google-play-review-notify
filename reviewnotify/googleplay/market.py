@@ -19,10 +19,14 @@ class LoginError(Exception):
         return repr(self.value)
 
 class RequestError(Exception):
-    def __init__(self, value):
+    def __init__(self, value, err_code=-1):
         self.value = value
+        self.err_code = err_code
     def __str__(self):
-        return repr(self.value)
+        s = repr(self.value)
+        if self.err_code > 0:
+            s = "HTTP Error: " + str(self.err_code) + "\n" + s
+        return s
 
 class MarketSession(object):
     URL_LOGIN = "https://android.clients.google.com/auth"
@@ -31,6 +35,7 @@ class MarketSession(object):
     SERVICE = "androidmarket";
     ACCOUNT_TYPE_HOSTED_OR_GOOGLE = "HOSTED_OR_GOOGLE"
     authSubToken = None
+    loggedIn = False
 
     def __init__(self, androidId):
         self.androidId = androidId.encode("ascii")
@@ -77,6 +82,7 @@ class MarketSession(object):
                 params[k.strip()] = v.strip()
             if "Auth" in params:
                 self.setAuthSubToken(params["Auth"])
+                self.loggedIn = True
             else:
                 raise LoginError("Auth token not found.")
         else:
@@ -114,8 +120,11 @@ class MarketSession(object):
                 response.ParseFromString(data)
                 defer.returnValue(response)
             else:
-                raise RequestError("Error %d" % resp.code)
+                data = yield treq.content(resp)
+                raise RequestError(str(data), resp.code)
         except Exception, e:
+            if isinstance(e, RequestError):
+                raise e
             raise RequestError(e)
 
     @defer.inlineCallbacks

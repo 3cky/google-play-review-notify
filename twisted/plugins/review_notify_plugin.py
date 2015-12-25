@@ -35,7 +35,7 @@ import codecs
 import humanfriendly
 
 from reviewnotify.notifiers import MUCNotifier
-from reviewnotify.googleplay.market import MarketSession
+from reviewnotify.googleplay.market import MarketSession, RequestError
 
 TAP_NAME = "google-play-review-notify"
 
@@ -46,7 +46,7 @@ DEFAULT_DB_FILENAME = 'reviews_db.sqlite'
 DEFAULT_NICKNAME = TAP_NAME
 DEFAULT_TEMPLATE_NAME = 'reviews.txt'
 
-RECONNECT_TIMEOUT = 60 # 1m
+RELOGIN_TIMEOUT = 60 # 1m
 
 DEFAULT_POLL_PERIOD = 600 # 10m
 DEFAULT_POLL_DELAY = 5
@@ -167,16 +167,18 @@ class ServiceManager(object):
         template = self.templateEnvironment.get_template(self.templateName)
         yield self.dbCreateTables()
         # poll cycle loop
+        session = MarketSession(self.androidId)
         while reactor.running:
+            if not session.loggedIn:
+                log.msg('Authorizing Google Play session...')
+                try:
+                    yield session.login(self.googleLogin, self.googlePassword)
+                except Exception, e:
+                    log.err(e, 'Can\'t authorize Google Play session')
+                    # delay before next login try
+                    yield sleep(RELOGIN_TIMEOUT)
+                    continue
             log.msg('Checking for new reviews...')
-            session = MarketSession(self.androidId)
-            try:
-                yield session.login(self.googleLogin, self.googlePassword)
-            except Exception, e:
-                log.err(e, 'Can\'t authorize Google Play session')
-                # delay before next connect retry
-                yield sleep(RECONNECT_TIMEOUT)
-                continue
             for app in self.apps:
                 try:
                     # get last reviews for an application
@@ -219,8 +221,15 @@ class ServiceManager(object):
                             if mucNotifier.isNotifierForApp(app.identifier):
                                 mucNotifier.notify(template.render(devId=self.googleDeveloperId,
                                                                    app=app, reviews=notifyReviews))
+                except RequestError, re:
+                    if re.err_code == 401:
+                        log.err(re, 'Access denied while checking for new reviews for an application %s' % app)
+                        session.loggedIn = False
+                        yield sleep(RELOGIN_TIMEOUT)
+                        break
+                    log.err(re, 'Can\'t request new reviews for an application %s' % app)
                 except Exception, e:
-                    log.err(e, 'Can\'t check for new reviews for an application %s' % app)
+                    log.err(e, 'Error while checking for new reviews for an application %s' % app)
                 if app <> self.apps[-1]:
                     # delay before check next application
                     yield sleep(self.pollDelay)
